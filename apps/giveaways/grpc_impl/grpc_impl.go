@@ -3,10 +3,11 @@ package grpc_impl
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/samber/lo"
 	model "github.com/satont/twir/libs/gomodels"
 	"gorm.io/gorm"
-	"time"
 
 	"github.com/satont/twir/apps/giveaways/internal/types/services"
 	"github.com/satont/twir/libs/grpc/generated/giveaways"
@@ -19,8 +20,10 @@ type GiveawaysGrpcServer struct {
 	services *services.Services
 }
 
-func NewServer() *GiveawaysGrpcServer {
-	return &GiveawaysGrpcServer{}
+func NewServer(services *services.Services) *GiveawaysGrpcServer {
+	return &GiveawaysGrpcServer{
+		services: services,
+	}
 }
 
 func (server *GiveawaysGrpcServer) HandleChatMessage(

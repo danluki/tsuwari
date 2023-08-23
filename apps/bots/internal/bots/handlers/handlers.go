@@ -10,6 +10,7 @@ import (
 	model "github.com/satont/twir/libs/gomodels"
 	"github.com/satont/twir/libs/gopool"
 	"github.com/satont/twir/libs/grpc/generated/events"
+	"github.com/satont/twir/libs/grpc/generated/giveaways"
 	"github.com/satont/twir/libs/grpc/generated/parser"
 
 	"github.com/satont/twir/apps/bots/types"
@@ -23,22 +24,24 @@ type BotInstance struct {
 }
 
 type HandlersOpts struct {
-	DB         *gorm.DB
-	Logger     *zap.Logger
-	Cfg        *cfg.Config
-	BotClient  *types.BotClient
-	ParserGrpc parser.ParserClient
-	EventsGrpc events.EventsClient
+	DB            *gorm.DB
+	Logger        *zap.Logger
+	Cfg           *cfg.Config
+	BotClient     *types.BotClient
+	ParserGrpc    parser.ParserClient
+	EventsGrpc    events.EventsClient
+	GiveawaysGrpc giveaways.GiveawaysClient
 }
 
 type Handlers struct {
-	db         *gorm.DB
-	logger     *zap.Logger
-	BotClient  *types.BotClient
-	cfg        *cfg.Config
-	parserGrpc parser.ParserClient
-	eventsGrpc events.EventsClient
-	redis      redis.Client
+	db            *gorm.DB
+	logger        *zap.Logger
+	BotClient     *types.BotClient
+	cfg           *cfg.Config
+	parserGrpc    parser.ParserClient
+	eventsGrpc    events.EventsClient
+	giveawaysGrpc giveaways.GiveawaysClient
+	redis         redis.Client
 
 	workersPool *gopool.Pool
 
@@ -80,6 +83,7 @@ func CreateHandlers(opts *HandlersOpts) *Handlers {
 		keywordsCounter:  keywordsCounter,
 		redis:            redisClient,
 		eventsGrpc:       opts.EventsGrpc,
+		giveawaysGrpc:    opts.GiveawaysGrpc,
 		workersPool:      workersPool,
 	}
 
