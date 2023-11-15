@@ -1,4 +1,10 @@
-import { QueryClient, QueryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
+import {
+	QueryClient,
+	QueryOptions,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from '@tanstack/vue-query';
 import { Dashboard, Profile } from '@twir/grpc/generated/api/api/auth';
 import { computed } from 'vue';
 
@@ -15,17 +21,16 @@ export const profileQueryOptions = {
 
 export const useProfile = () => useQuery<Profile | null>(profileQueryOptions);
 
-
-export const useLogout = () => useMutation({
-	mutationKey: ['authLogout'],
-	mutationFn: async () => {
-		await protectedApiClient.authLogout({});
-	},
-	onSuccess: () => {
-		window.location.replace('/');
-	},
-});
-
+export const useLogout = () =>
+	useMutation({
+		mutationKey: ['authLogout'],
+		mutationFn: async () => {
+			await protectedApiClient.authLogout({});
+		},
+		onSuccess: () => {
+			window.location.replace('/');
+		},
+	});
 
 export const dashboardsQueryOptions = {
 	queryKey: ['authDashboards'],
@@ -50,7 +55,6 @@ export const useSetDashboard = () => {
 		},
 	});
 };
-
 
 export const PERMISSIONS_FLAGS = {
 	CAN_ACCESS_DASHBOARD: 'All permissions',
@@ -97,22 +101,28 @@ export const PERMISSIONS_FLAGS = {
 
 	VIEW_GAMES: 'Can view games',
 	MANAGE_GAMES: 'Can manage games',
+
+	VIEW_GIVEAWAYS: 'Can view giveaways',
+	MANAGE_GIVEAWAYS: 'Can manage giveaways',
 };
 
-export type PermissionsType = keyof typeof PERMISSIONS_FLAGS
+export type PermissionsType = keyof typeof PERMISSIONS_FLAGS;
 
 export const useUserAccessFlagChecker = (flag: PermissionsType) => {
 	const profile = useProfile();
 	const dashboards = useDashboards();
 
 	return computed(() => {
-		if (!dashboards.data.value?.dashboards || !profile.data.value?.selectedDashboardId) return false;
+		if (!dashboards.data.value?.dashboards || !profile.data.value?.selectedDashboardId)
+			return false;
 
 		if (profile.data.value.id == profile.data.value.selectedDashboardId) {
 			return true;
 		}
 
-		const dashboard = dashboards.data.value.dashboards.find(d => d.id === profile.data.value!.selectedDashboardId);
+		const dashboard = dashboards.data.value.dashboards.find(
+			(d) => d.id === profile.data.value!.selectedDashboardId,
+		);
 		if (!dashboard) return false;
 
 		if (dashboard.flags.includes('CAN_ACCESS_DASHBOARD')) return true;
@@ -121,15 +131,15 @@ export const useUserAccessFlagChecker = (flag: PermissionsType) => {
 };
 
 export const userAccessFlagChecker = async (queryClient: QueryClient, flag: PermissionsType) => {
-	const profile = await queryClient.getQueryData(profileQueryOptions.queryKey) as Profile | null;
-	const { dashboards } = await queryClient.getQueryData(dashboardsQueryOptions.queryKey) as {
-		dashboards: Dashboard[]
+	const profile = (await queryClient.getQueryData(profileQueryOptions.queryKey)) as Profile | null;
+	const { dashboards } = (await queryClient.getQueryData(dashboardsQueryOptions.queryKey)) as {
+		dashboards: Dashboard[];
 	};
 
 	if (!dashboards || !profile || !profile.selectedDashboardId) return false;
 	if (profile.selectedDashboardId == profile.id) return true;
 
-	const dashboard = dashboards.find(d => d.id === profile.selectedDashboardId);
+	const dashboard = dashboards.find((d) => d.id === profile.selectedDashboardId);
 	if (!dashboard) return false;
 
 	if (dashboard.flags.includes('CAN_ACCESS_DASHBOARD')) return true;

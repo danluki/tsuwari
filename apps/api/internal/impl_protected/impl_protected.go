@@ -15,6 +15,7 @@ import (
 	"github.com/satont/twir/apps/api/internal/impl_protected/events"
 	"github.com/satont/twir/apps/api/internal/impl_protected/files"
 	"github.com/satont/twir/apps/api/internal/impl_protected/games"
+	"github.com/satont/twir/apps/api/internal/impl_protected/giveaways"
 	"github.com/satont/twir/apps/api/internal/impl_protected/greetings"
 	"github.com/satont/twir/apps/api/internal/impl_protected/integrations"
 	"github.com/satont/twir/apps/api/internal/impl_protected/keywords"
@@ -63,6 +64,7 @@ type Protected struct {
 	*games.Games
 	*overlays.Overlays
 	*moderation.Moderation
+	*giveaways.Giveaways
 }
 
 type Opts struct {
@@ -126,5 +128,6 @@ func New(opts Opts) *Protected {
 		Games:            &games.Games{Deps: d},
 		Overlays:         &overlays.Overlays{Deps: d},
 		Moderation:       &moderation.Moderation{Deps: d},
+		Giveaways:        &giveaways.Giveaways{Deps: d},
 	}
 }

@@ -13,6 +13,7 @@ use (
 	./apps/tokens
 	./apps/websockets
 	./apps/ytsr
+	./apps/giveaways
 	./libs/config
 	./libs/crypto
 	./libs/gomodels

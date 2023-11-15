@@ -22,6 +22,7 @@ import (
 	model "github.com/satont/twir/libs/gomodels"
 	"github.com/satont/twir/libs/gopool"
 	"github.com/satont/twir/libs/grpc/generated/events"
+	"github.com/satont/twir/libs/grpc/generated/giveaways"
 	"github.com/satont/twir/libs/grpc/generated/parser"
 	"github.com/satont/twir/libs/grpc/generated/tokens"
 	"github.com/satont/twir/libs/grpc/generated/websockets"
@@ -94,6 +95,7 @@ type services struct {
 	TokensGrpc     tokens.TokensClient
 	EventsGrpc     events.EventsClient
 	WebsocketsGrpc websockets.WebsocketClient
+	GiveawaysGrpc  giveaways.GiveawaysClient
 }
 
 type Opts struct {
@@ -105,6 +107,7 @@ type Opts struct {
 	TokensGrpc      tokens.TokensClient
 	EventsGrpc      events.EventsClient
 	WebsocketsGrpc  websockets.WebsocketClient
+	GiveawaysGrpc   giveaways.GiveawaysClient
 	Redis           *redis.Client
 	JoinRateLimiter ratelimiting.SlidingWindow
 	Tlds            *tlds.TLDS
@@ -143,10 +146,18 @@ func New(opts Opts) *ChatClient {
 		},
 	)
 	if err != nil {
-		opts.Logger.Error("No user found", slog.String("bot.id", opts.Model.ID), slog.Any("err", err))
+		opts.Logger.Error(
+			"No user found",
+			slog.String("bot.id", opts.Model.ID),
+			slog.Any("err", err),
+		)
 	}
 	if meReq.ErrorMessage != "" {
-		opts.Logger.Error("No user found", slog.String("bot.id", opts.Model.ID), slog.String("err", meReq.ErrorMessage))
+		opts.Logger.Error(
+			"No user found",
+			slog.String("bot.id", opts.Model.ID),
+			slog.String("err", meReq.ErrorMessage),
+		)
 		os.Exit(1)
 	}
 	if len(meReq.Data.Users) == 0 {
@@ -166,6 +177,7 @@ func New(opts Opts) *ChatClient {
 		TokensGrpc:     opts.TokensGrpc,
 		EventsGrpc:     opts.EventsGrpc,
 		WebsocketsGrpc: opts.WebsocketsGrpc,
+		GiveawaysGrpc:  opts.GiveawaysGrpc,
 		Redis:          opts.Redis,
 		TwitchClient:   twitchClient,
 		tlds:           opts.Tlds,
