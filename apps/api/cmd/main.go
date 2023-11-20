@@ -10,6 +10,7 @@ import (
 	"github.com/satont/twir/apps/api/internal/files"
 	"github.com/satont/twir/libs/grpc/generated/discord"
 	"github.com/satont/twir/libs/grpc/generated/eventsub"
+	"github.com/satont/twir/libs/grpc/generated/giveaways"
 	"github.com/satont/twir/libs/logger"
 
 	"github.com/satont/twir/libs/grpc/generated/scheduler"
@@ -93,6 +94,9 @@ func main() {
 			func(c cfg.Config) discord.DiscordClient {
 				return clients.NewDiscord(c.AppEnv)
 			},
+			func(c cfg.Config) giveaways.GiveawaysClient {
+				return clients.NewGiveaways(c.AppEnv)
+			},
 			func(config cfg.Config, lc fx.Lifecycle) (*redis.Client, error) {
 				redisOpts, err := redis.ParseURL(config.RedisUrl)
 				if err != nil {
@@ -158,7 +162,10 @@ func main() {
 				l.Info("Started")
 				l.Error(
 					"Crashed",
-					slog.Any("err", http.ListenAndServe("0.0.0.0:3002", sessionManager.LoadAndSave(mux))),
+					slog.Any(
+						"err",
+						http.ListenAndServe("0.0.0.0:3002", sessionManager.LoadAndSave(mux)),
+					),
 				)
 			},
 		),

@@ -114,6 +114,10 @@ export const newRouter = (queryClient: QueryClient) => {
 					component: () => import('./pages/Files.vue'),
 				},
 				{
+					path: '/dashboard/giveaways',
+					component: () => import('./pages/Giveaways.vue'),
+				},
+				{
 					path: '/dashboard/registry/overlays',
 					component: () => import('./pages/OverlaysRegistry.vue'),
 					meta: { neededPermission: 'VIEW_OVERLAYS' },

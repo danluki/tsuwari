@@ -338,14 +338,17 @@ service Protected {
       returns (api.giveaways.Giveaway) {}
   rpc GiveawaysGetParticipants(api.giveaways.GetParticipantsRequest)
       returns (api.giveaways.GetParticipantsResponse) {}
-  rpc GiveawaysCreateOrGet(api.giveaways.CreateOrGetRequest)
+  rpc GiveawaysCreate(api.giveaways.CreateRequest)
       returns (api.giveaways.Giveaway) {}
   rpc GiveawaysDelete(api.giveaways.DeleteRequest)
       returns (google.protobuf.Empty) {}
   rpc GiveawaysGetById(api.giveaways.GetByIdRequest)
       returns (api.giveaways.Giveaway) {}
-  rpc GiveawaysUpdate(api.giveaways.UpdateRequest)
+  rpc GiveawaysUpdateOrCreate(api.giveaways.UpdateOrCreateRequest)
       returns (api.giveaways.Giveaway) {}
+	rpc GiveawaysChooseWinner(api.giveaways.ChooseWinnerRequest) returns (api.giveaways.ChooseWinnerResponse) {}
+	rpc GiveawaysUpdate(api.giveaways.UpdateRequest) returns (api.giveaways.Giveaway) {}
+	rpc GiveawaysGetWinner(api.giveaways.GetWinnerRequest) returns (api.giveaways.GetWinnerResponse) {}
 }
 
 // UnProtected

@@ -55,11 +55,11 @@ CREATE TABLE "channels_giveaways_participants" (
 	"end_ticket" int not null default '0'
 );
 
-ALTER TABLE "channels_giveaways" ADD CONSTRAINT "channels_giveaways_channels_channel_fk" FOREIGN KEY ("channel_id") REFERENCES "channels"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE "channels_giveaways" ADD CONSTRAINT "channels_giveaways_channels_channel_fk" FOREIGN KEY ("channel_id") REFERENCES "channels"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 ALTER TABLE "channels_giveaways_participants" ADD CONSTRAINT "channel_giveaways_channel_giveaways_participants_giveaway_fk" FOREIGN KEY ("giveaway_id") REFERENCES "channels_giveaways"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "channels_giveaways_participants" ADD CONSTRAINT "channel_giveaways_channel_giveaways_participants_user_fk" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 ALTER TABLE "channels_modules_settings" ADD CONSTRAINT "channel_giveaways_channel_modules_settings_user_fk" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-
+ALTER TABLE "channels_giveaways_participants" ADD CONSTRAINT "channels_giveaways_participants_unique" UNIQUE("giveaway_id", "user_id");
 
 -- +goose StatementEnd
 

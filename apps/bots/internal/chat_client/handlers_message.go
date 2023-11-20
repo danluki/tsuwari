@@ -138,6 +138,12 @@ func (c *ChatClient) onMessage(msg Message) {
 		},
 	)
 
+	c.workersPool.Submit(
+		func() {
+			c.handleGiveaways(msg, userBadges)
+		},
+	)
+
 	if msg.Tags["first-msg"] == "1" {
 		c.workersPool.Submit(
 			func() {

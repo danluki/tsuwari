@@ -11,11 +11,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nicklaw5/helix/v2"
 	"github.com/redis/go-redis/v9"
+	cfg "github.com/satont/twir/libs/config"
 	model "github.com/satont/twir/libs/gomodels"
 	"github.com/satont/twir/libs/grpc/constants"
 	"github.com/satont/twir/libs/grpc/generated/giveaways"
+	"github.com/satont/twir/libs/grpc/generated/tokens"
 	"github.com/satont/twir/libs/logger"
+	"github.com/satont/twir/libs/twitch"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -32,18 +36,23 @@ type Opts struct {
 	Logger logger.Logger
 	DB     *gorm.DB
 	Redis  *redis.Client
+
+	TokensGrpc tokens.TokensClient
+	Cfg        cfg.Config
 }
 
 func New(opts Opts) (giveaways.GiveawaysServer, error) {
 	service := &Impl{
-		DB:     opts.DB,
-		Logger: opts.Logger,
-		Redis:  opts.Redis,
+		DB:         opts.DB,
+		Logger:     opts.Logger,
+		Redis:      opts.Redis,
+		TokensGrpc: opts.TokensGrpc,
+		Cfg:        opts.Cfg,
 	}
 
 	grpcNetListener, err := net.Listen(
 		"tcp",
-		fmt.Sprintf("0.0.0.0:%d", constants.DISCORD_SERVER_PORT),
+		fmt.Sprintf("0.0.0.0:%d", constants.GIVEAWAYS_SERVER_PORT),
 	)
 	if err != nil {
 		return nil, err
@@ -78,9 +87,11 @@ func New(opts Opts) (giveaways.GiveawaysServer, error) {
 type Impl struct {
 	giveaways.UnimplementedGiveawaysServer
 
-	Logger logger.Logger
-	DB     *gorm.DB
-	Redis  *redis.Client
+	Logger     logger.Logger
+	DB         *gorm.DB
+	Redis      *redis.Client
+	Cfg        cfg.Config
+	TokensGrpc tokens.TokensClient
 }
 
 func (c *Impl) TryProcessParticipant(
@@ -88,12 +99,14 @@ func (c *Impl) TryProcessParticipant(
 	req *giveaways.TryProcessParticipantRequest,
 ) (*emptypb.Empty, error) {
 	giveaway := model.ChannelGiveaway{}
-
 	err := c.DB.WithContext(ctx).
-		Where(`"channel_id = ? AND "is_finished" = ? AND "is_running" = ?`, req.GetChannelId(), true, false).
-		First(&giveaway).
+		Where(`"channel_id" = ? AND "is_finished" = ? AND "is_running" = ?`, req.GetChannelId(), false, true).
+		Find(&giveaway).
 		Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, status.Error(codes.NotFound, "Cannot find currently running giveaway")
+		}
 		c.Logger.Error(
 			"cannot get giveaway",
 			slog.Any("err", err),
@@ -102,6 +115,10 @@ func (c *Impl) TryProcessParticipant(
 		)
 
 		return nil, err
+	}
+
+	if giveaway.ID == "" {
+		return &emptypb.Empty{}, nil
 	}
 
 	text := req.GetMessageText()
@@ -144,18 +161,29 @@ func (c *Impl) TryProcessParticipant(
 	}
 
 	// TODO: check if user has all roles, and all required stats
-	if userStats.Messages < int32(giveaway.RequireMinMessages) {
+	if userStats.Messages <= int32(giveaway.RequireMinMessages) {
 		return &emptypb.Empty{}, nil
 	}
 
-	if userStats.Watched < int64(giveaway.RequiredMinWatchTime) {
+	if userStats.Watched <= int64(giveaway.RequiredMinWatchTime) {
 		return &emptypb.Empty{}, nil
 	}
+
+	//TODO: Probably wrong id
+	// isFollower, err := c.isFollower(ctx, req.GetChannelId(), dbUser.ID)
+	// if err != nil {
+	// 	c.Logger.Error("Cannot check if user is follower", slog.Any("err", err))
+	// 	return nil, err
+	// }
 
 	newParticipant := model.ChannelGiveawayParticipant{
-		UserID:               dbUser.ID,
-		DisplayName:          req.GetDisplayName(),
-		IsSubscriber:         userStats.IsSubscriber,
+		GiveawayID:   giveaway.ID,
+		UserID:       dbUser.ID,
+		DisplayName:  req.GetDisplayName(),
+		IsSubscriber: userStats.IsSubscriber,
+		IsModerator:  userStats.IsMod,
+		IsVip:        userStats.IsVip,
+		// IsFollower:           isFollower,
 		MessagesCount:        int(userStats.Messages),
 		UserStatsWatchedTime: userStats.Watched,
 	}
@@ -175,7 +203,7 @@ func (c *Impl) ChooseWinner(
 	giveaway := model.ChannelGiveaway{}
 
 	err := c.DB.WithContext(ctx).
-		Where(`"id" = ? "isRunning" = ? AND "isFinished" = ?`, req.GetGiveawayId(), true, false).
+		Where(`"id" = ? AND "is_finished" = ?`, req.GetGiveawayId(), false).
 		Find(&giveaway).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -203,9 +231,19 @@ func (c *Impl) ChooseWinner(
 		return nil, err
 	}
 
+	for _, participant := range participants {
+		err = c.DB.WithContext(ctx).
+			Model(participant).
+			Update("is_winner", false).
+			Error
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	processedParticipants := make([]*giveaways.SimpleWinner, 0, len(participants))
 	for _, participant := range participants {
-		countOfTimes := 0
+		countOfTimes := 1
 		if participant.IsSubscriber {
 			countOfTimes += giveaway.SubscribersLuck
 		}
@@ -223,16 +261,68 @@ func (c *Impl) ChooseWinner(
 	}
 
 	winners := make([]*giveaways.SimpleWinner, giveaway.WinnersCount)
-	for i := 0; i < len(winners); i++ {
-		randInd := rand.Intn(len(processedParticipants))
-		winners[i] = processedParticipants[randInd]
-		processedParticipants[randInd] = processedParticipants[len(processedParticipants)-1]
-		processedParticipants = processedParticipants[:len(processedParticipants)-1]
-	}
+	err = c.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for i := 0; i < len(winners); i++ {
+			randInd := rand.Intn(len(processedParticipants))
+			winners[i] = processedParticipants[randInd]
+			processedParticipants[randInd] = processedParticipants[len(processedParticipants)-1]
+			processedParticipants = processedParticipants[:len(processedParticipants)-1]
 
-	c.Redis.Del(ctx, fmt.Sprintf("giveaway:%s", giveaway.ChannelID))
+			err = c.DB.WithContext(ctx).
+				Where(`"giveaway_id" = ? AND "user_id" = ?`, giveaway.ID, winners[i].UserId).
+				Model(&model.ChannelGiveawayParticipant{}).
+				Update("is_winner", true).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		err = c.DB.WithContext(ctx).
+			Where(`"id" = ?`, giveaway.ID).
+			Model(&model.ChannelGiveaway{}).
+			Update("is_running", false).
+			Error
+
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	return &giveaways.ChooseWinnerResponse{
 		Winners: winners,
 	}, nil
+}
+
+func (c *Impl) isFollower(ctx context.Context, channelId, userId string) (bool, error) {
+	twitchClient, err := twitch.NewAppClientWithContext(
+		ctx,
+		c.Cfg,
+		c.TokensGrpc,
+	)
+	if err != nil {
+		return false, err
+	}
+
+	follow, err := twitchClient.GetChannelFollows(
+		&helix.GetChannelFollowsParams{
+			BroadcasterID: channelId,
+			UserID:        userId,
+			First:         0,
+			After:         "",
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	if follow.ErrorMessage != "" {
+		return false, errors.New("Cannot get data from twitch")
+	}
+
+	if len(follow.Data.Channels) == 0 {
+		return false, nil
+	}
+
+	return true, nil
 }

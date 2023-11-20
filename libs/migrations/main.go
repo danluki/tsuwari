@@ -6,7 +6,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/pressly/goose/v3"
-	"github.com/satont/twir/libs/config"
+	cfg "github.com/satont/twir/libs/config"
 	_ "github.com/satont/twir/libs/migrations/migrations"
 	"github.com/satont/twir/libs/migrations/seeds"
 )

@@ -20,7 +20,7 @@ import {
 	IconSpeakerphone,
 	IconSword,
 	IconUsers,
-
+	IconGift,
 } from '@tabler/icons-vue';
 import {
 	type MenuDividerOption,
@@ -60,6 +60,7 @@ const canViewGreetings = useUserAccessFlagChecker('VIEW_GREETINGS');
 const canViewRoles = useUserAccessFlagChecker('VIEW_ROLES');
 const canViewAlerts = useUserAccessFlagChecker('VIEW_ALERTS');
 const canViewGames = useUserAccessFlagChecker('VIEW_GAMES');
+const canViewGiveaways = useUserAccessFlagChecker('VIEW_GIVEAWAYS');
 
 const menuOptions = computed<(MenuOption | MenuDividerOption)[]>(() => {
 	return [
@@ -190,6 +191,12 @@ const menuOptions = computed<(MenuOption | MenuDividerOption)[]>(() => {
 			icon: renderIcon(IconSpeakerphone),
 			path: '/dashboard/greetings',
 			disabled: !canViewGreetings.value,
+		},
+		{
+			label: t('sidebar.giveaways'),
+			icon: renderIcon(IconGift),
+			path: '/dashboard/giveaways',
+			disabled: !canViewGiveaways.value,
 		},
 	].map((item) => ({
 		...item,

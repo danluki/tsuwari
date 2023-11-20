@@ -1,6 +1,8 @@
 <script setup lang="ts">
 
-import { useCurrentGiveaway } from '@/api/index.js';
+import Chat from '@/components/giveaways/chat.vue';
+import Settings from '@/components/giveaways/settings.vue';
+import Users from '@/components/giveaways/users.vue';
 
 </script>
 
@@ -8,6 +10,12 @@ import { useCurrentGiveaway } from '@/api/index.js';
 	<div class="main-container">
 		<div class="flex-container">
 			<Users />
+		</div>
+		<div class="flex-container">
+			<Settings />
+		</div>
+		<div class="flex-container">
+			<Chat />
 		</div>
 	</div>
 </template>

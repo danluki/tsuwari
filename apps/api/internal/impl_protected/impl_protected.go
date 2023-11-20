@@ -30,6 +30,7 @@ import (
 	config "github.com/satont/twir/libs/config"
 	"github.com/satont/twir/libs/grpc/generated/bots"
 	"github.com/satont/twir/libs/grpc/generated/discord"
+	giveawaysGrpc "github.com/satont/twir/libs/grpc/generated/giveaways"
 	integrationsGrpc "github.com/satont/twir/libs/grpc/generated/integrations"
 	"github.com/satont/twir/libs/grpc/generated/parser"
 	"github.com/satont/twir/libs/grpc/generated/scheduler"
@@ -84,6 +85,7 @@ type Opts struct {
 	TimersGrpc       timersGrpc.TimersClient
 	DiscordGrpc      discord.DiscordClient
 	Logger           logger.Logger
+	GiveawaysGrpc    giveawaysGrpc.GiveawaysClient
 }
 
 func New(opts Opts) *Protected {
@@ -101,6 +103,7 @@ func New(opts Opts) *Protected {
 			Scheduler:    opts.SchedulerGrpc,
 			Timers:       opts.TimersGrpc,
 			Discord:      opts.DiscordGrpc,
+			Giveaways:    opts.GiveawaysGrpc,
 		},
 		Logger: opts.Logger,
 	}

@@ -3,10 +3,13 @@ package giveaways
 import (
 	"context"
 	"errors"
+	"math/rand"
 
 	"github.com/satont/twir/apps/api/internal/impl_deps"
 	model "github.com/satont/twir/libs/gomodels"
 	"github.com/satont/twir/libs/grpc/generated/api/giveaways"
+	giveawaysService "github.com/satont/twir/libs/grpc/generated/giveaways"
+	"github.com/twitchtv/twirp"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gorm.io/gorm"
 )
@@ -57,6 +60,10 @@ func (c *Giveaways) GiveawaysGetCurrent(
 		First(&dbGiveaway).
 		Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, twirp.NewError(twirp.NotFound, "giveaway not found")
+		}
+
 		return nil, err
 	}
 
@@ -67,11 +74,11 @@ func (c *Giveaways) GiveawaysGetParticipants(
 	ctx context.Context,
 	req *giveaways.GetParticipantsRequest,
 ) (*giveaways.GetParticipantsResponse, error) {
-	dashboardId := ctx.Value("dashboardId").(string)
+	// dashboardId := ctx.Value("dashboardId").(string)
 
 	var participants []*model.ChannelGiveawayParticipant
 	err := c.Db.WithContext(ctx).
-		Where(`"giveaway_id" = ? AND "display_name" LIKE ? AND "channel_id" = ?`, req.GiveawayId, "%"+req.GetQuery()+"%", dashboardId).
+		Where(`"giveaway_id" = ? AND "display_name" LIKE ?`, req.GiveawayId, "%"+req.GetQuery()+"%").
 		Find(&participants).
 		Error
 	if err != nil {
@@ -79,7 +86,11 @@ func (c *Giveaways) GiveawaysGetParticipants(
 	}
 
 	var count int64
-	err = c.Db.WithContext(ctx).Where(`"giveaway_id" = ?`, req.GiveawayId).Count(&count).Error
+	err = c.Db.WithContext(ctx).
+		Where(`"giveaway_id" = ?`, req.GiveawayId).
+		Model(&model.ChannelGiveawayParticipant{}).
+		Count(&count).
+		Error
 	if err != nil {
 		return nil, err
 	}
@@ -98,51 +109,84 @@ func (c *Giveaways) GiveawaysGetParticipants(
 	}, nil
 }
 
-func (c *Giveaways) GiveawaysCreateOrGet(
+func (c *Giveaways) GiveawaysCreate(
 	ctx context.Context,
-	req *giveaways.CreateOrGetRequest,
+	req *giveaways.CreateRequest,
 ) (*giveaways.Giveaway, error) {
 	dashboardId := ctx.Value("dashboardId").(string)
 
-	var dbGiveaway model.ChannelGiveaway
-	err := c.Db.WithContext(ctx).
-		Where(`"channel_id" = ? AND "is_finished" == ? AND "is_running" == ?`, dashboardId, false, true).
-		First(&dbGiveaway).
-		Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, err
-		}
-	}
-
 	entity := &model.ChannelGiveaway{
-		ChannelID:                 dashboardId,
-		RequiredMinSubscriberTime: int(req.RequiredMinSubscriberTime),
-		RequireMinMessages:        int(req.RequiredMinMessages),
-		EligibleUserGroups:        req.EligibleUserGroups,
-		Description:               req.Description,
-		Keyword:                   req.Keyword,
-		FollowersLuck:             int(req.FollowersLuck),
-		RequiredMinFollowTime:     int(req.RequiredMinFollowTime),
-		RandomNumberTo:            int(req.RandomNumberTo),
-		RandomNumberFrom:          int(req.RandomNumberFrom),
-		MessagesCountLuck:         int(req.MessagesCountLuck),
-		SubscribersLuck:           int(req.SubscribersLuck),
-		SubscribersTier1Luck:      int(req.SubscribersTier1Luck),
-		SubscribersTier2Luck:      int(req.SubscribersTier2Luck),
-		SubscribersTier3Luck:      int(req.SubscribersTier3Luck),
-		RequiredMinWatchTime:      int(req.RequiredMinWatchTime),
-		RequireMinSubscriberTier:  int(req.RequiredMinSubscriberTier),
-		WinnerRandomNumber:        int(req.WinnerRandomNumber),
-		WinnersCount:              int(req.WinnerCount),
-		Type:                      model.GiveawayType(req.Type),
+		ChannelID: dashboardId,
+		// RequiredMinSubscriberTime: int(req.RequiredMinSubscriberTime),
+		RequireMinMessages: int(req.RequiredMinMessages),
+		// EligibleUserGroups:        req.EligibleUserGroups,
+		Description:   req.Description,
+		Keyword:       req.Keyword,
+		FollowersLuck: int(req.FollowersLuck),
+		// RequiredMinFollowTime:     int(req.RequiredMinFollowTime),
+		RandomNumberTo:   int(req.RandomNumberTo),
+		RandomNumberFrom: int(req.RandomNumberFrom),
+		// MessagesCountLuck:         int(req.MessagesCountLuck),
+		SubscribersLuck: int(req.SubscribersLuck),
+		// SubscribersTier1Luck:      int(req.SubscribersTier1Luck),
+		// SubscribersTier2Luck:      int(req.SubscribersTier2Luck),
+		// SubscribersTier3Luck:      int(req.SubscribersTier3Luck),
+		RequiredMinWatchTime: int(req.RequiredMinWatchTime),
+		// RequireMinSubscriberTier:  int(req.RequiredMinSubscriberTier),
+		WinnerRandomNumber: int(req.WinnerRandomNumber),
+		WinnersCount:       int(req.WinnerCount),
+		Type:               model.GiveawayType(req.Type),
 	}
-	err = c.Db.WithContext(ctx).Create(entity).Error
+	err := c.Db.WithContext(ctx).Create(entity).Error
 	if err != nil {
 		return nil, err
 	}
 
 	return c.convertEntity(entity), nil
+}
+
+func (c *Giveaways) GiveawaysUpdateOrCreate(
+	ctx context.Context,
+	req *giveaways.UpdateOrCreateRequest,
+) (*giveaways.Giveaway, error) {
+	dashboardId := ctx.Value("dashboardId").(string)
+
+	dbGiveaway := model.ChannelGiveaway{}
+	err := c.Db.WithContext(ctx).
+		Where(`"channel_id" = ? AND "is_finished" != ?`, dashboardId, true).
+		Find(&dbGiveaway).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	dbGiveaway.ChannelID = dashboardId
+	dbGiveaway.IsRunning = req.GetIsRunning()
+	dbGiveaway.IsFinished = req.GetIsFinished()
+	dbGiveaway.Description = req.GetDescription()
+	dbGiveaway.Keyword = req.GetKeyword()
+	dbGiveaway.FollowersLuck = int(req.GetFollowersLuck())
+	dbGiveaway.RandomNumberTo = int(req.GetRandomNumberTo())
+	dbGiveaway.RandomNumberFrom = int(req.GetRandomNumberFrom())
+	dbGiveaway.RequiredMinWatchTime = int(req.GetRequiredMinWatchTime())
+	dbGiveaway.RequireMinMessages = int(req.GetRequiredMinMessages())
+	dbGiveaway.SubscribersLuck = int(req.GetSubscribersLuck())
+	dbGiveaway.WinnersCount = int(req.GetWinnersCount())
+	dbGiveaway.Type = model.GiveawayType(req.GetType())
+	if dbGiveaway.Type == model.GiveawayTypeByRandomNumber {
+		dbGiveaway.WinnerRandomNumber = rand.Intn(
+			int(req.GetRandomNumberTo()-req.GetRandomNumberFrom()),
+		) + int(
+			req.GetRandomNumberFrom(),
+		)
+	}
+
+	err = c.Db.WithContext(ctx).Save(&dbGiveaway).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return c.convertEntity(&dbGiveaway), nil
 }
 
 func (c *Giveaways) GiveawaysUpdate(
@@ -160,21 +204,28 @@ func (c *Giveaways) GiveawaysUpdate(
 		return nil, err
 	}
 
-	err = c.Db.WithContext(ctx).Model(&model.ChannelGiveaway{}).Updates(model.ChannelGiveaway{
-		IsRunning:            req.GetIsRunning(),
-		IsFinished:           req.GetIsFinished(),
-		Description:          req.GetDescription(),
-		Keyword:              req.GetKeyword(),
-		FollowersLuck:        int(req.GetFollowersLuck()),
-		RandomNumberTo:       int(req.GetRandomNumberTo()),
-		RandomNumberFrom:     int(req.GetRandomNumberFrom()),
-		RequiredMinWatchTime: int(req.GetRequiredMinWatchTime()),
-		// RequiredMinFollowTime: int(req.GetRequiredMinFollowTime()),
-		RequireMinMessages: int(req.GetRequiredMinMessages()),
-		SubscribersLuck:    int(req.GetSubscribersLuck()),
-		WinnersCount:       int(req.GetWinnersCount()),
-		Type:               model.GiveawayType(req.GetType()),
-	}).Error
+	dbGiveaway.ChannelID = dashboardId
+	dbGiveaway.IsRunning = req.GetIsRunning()
+	dbGiveaway.IsFinished = req.GetIsFinished()
+	dbGiveaway.Description = req.GetDescription()
+	dbGiveaway.Keyword = req.GetKeyword()
+	dbGiveaway.FollowersLuck = int(req.GetFollowersLuck())
+	dbGiveaway.RandomNumberTo = int(req.GetRandomNumberTo())
+	dbGiveaway.RandomNumberFrom = int(req.GetRandomNumberFrom())
+	dbGiveaway.RequiredMinWatchTime = int(req.GetRequiredMinWatchTime())
+	dbGiveaway.RequireMinMessages = int(req.GetRequiredMinMessages())
+	dbGiveaway.SubscribersLuck = int(req.GetSubscribersLuck())
+	dbGiveaway.WinnersCount = int(req.GetWinnersCount())
+	dbGiveaway.Type = model.GiveawayType(req.GetType())
+	if dbGiveaway.Type == model.GiveawayTypeByRandomNumber {
+		dbGiveaway.WinnerRandomNumber = rand.Intn(
+			int(req.GetRandomNumberTo()-req.GetRandomNumberFrom()),
+		) + int(
+			req.GetRandomNumberFrom(),
+		)
+	}
+
+	err = c.Db.WithContext(ctx).Updates(&dbGiveaway).Error
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +240,7 @@ func (c *Giveaways) GiveawaysDelete(
 	dashboardId := ctx.Value("dashboardId").(string)
 
 	err := c.Db.WithContext(ctx).
-		Where(`"channel_id = ?" AND "id = ?"`, dashboardId, req.Id).
+		Where(`"channel_id = ?" AND "id = ?"`, dashboardId, req.GetId()).
 		Delete(&model.ChannelGiveaway{}).
 		Error
 	if err != nil {
@@ -216,4 +267,66 @@ func (c *Giveaways) GiveawaysGetById(
 	}
 
 	return c.convertEntity(&dbGiveaway), nil
+}
+
+func (c *Giveaways) GiveawaysChooseWinner(
+	ctx context.Context,
+	req *giveaways.ChooseWinnerRequest,
+) (*giveaways.ChooseWinnerResponse, error) {
+	dashboardId := ctx.Value("dashboardId").(string)
+
+	var dbGiveaway model.ChannelGiveaway
+	err := c.Db.WithContext(ctx).
+		Where(`"channel_id" = ? AND "id" = ?`, dashboardId, req.GetGiveawayId()).
+		Group(`"id`).
+		First(&dbGiveaway).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := c.Grpc.Giveaways.ChooseWinner(ctx, &giveawaysService.ChooseWinnerRequest{
+		GiveawayId: req.GetGiveawayId(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	winners := make([]*giveaways.Winner, len(res.Winners))
+	for i, winner := range res.Winners {
+		winners[i] = &giveaways.Winner{
+			UserId:      winner.GetUserId(),
+			DisplayName: winner.GetDisplayName(),
+		}
+	}
+
+	return &giveaways.ChooseWinnerResponse{
+		Winners: winners,
+	}, nil
+}
+
+func (c *Giveaways) GiveawaysGetWinner(
+	ctx context.Context,
+	req *giveaways.GetWinnerRequest,
+) (*giveaways.GetWinnerResponse, error) {
+	dashboardId := ctx.Value("dashboardId").(string)
+
+	var dbGiveaway model.ChannelGiveaway
+	err := c.Db.WithContext(ctx).
+		Where(`"channel_id" = ? AND "id" = ?`, dashboardId, req.GetGiveawayId()).
+		Group(`"id`).
+		First(&dbGiveaway).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	var winners []model.ChannelGiveawayParticipant
+	err = c.Db.WithContext(ctx).
+		Where(`"giveaway_id" = ? AND "winner" = ?`, req.GetGiveawayId(), true).
+		Find(&winners).
+		Error
+	if err != nil {
+		return nil, err
+	}
 }

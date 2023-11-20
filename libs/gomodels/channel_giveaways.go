@@ -20,7 +20,7 @@ type ChannelGiveaway struct {
 	StartAt                   time.Time    `gorm:"column:start_at;not null"                                   json:"start_at"`
 	EndAt                     time.Time    `gorm:"column:end_at;not null"                                     json:"end_at"`
 	ClosedAt                  time.Time    `gorm:"column:closed_at;not null"                                  json:"closed_at"`
-	IsRunning                 bool         `gorm:"column:is_running"                                          json:"is_running"`
+	IsRunning                 bool         `gorm:"column:is_running;not null;default:false"                   json:"is_running"`
 	IsFinished                bool         `gorm:"column:is_finished;not null;default:false"                  json:"is_finished"`
 	RequiredMinWatchTime      int          `gorm:"column:required_min_watch_time"                             json:"required_min_watch_time"`
 	RequiredMinFollowTime     int          `gorm:"column:required_min_follow_time"                            json:"required_min_follow_time"`

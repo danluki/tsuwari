@@ -11,10 +11,9 @@ func (c *ChatClient) handleGiveaways(
 	msg Message,
 	userBadges []string,
 ) {
-	if msg.DbStream.ID == "" {
-		return
-	}
-
+	// if msg.DbStream.ID == "" {
+	// 	return
+	// }
 	defer func() {
 		_, err := c.services.GiveawaysGrpc.TryProcessParticipant(
 			context.Background(),
