@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
-import { ChooseWinnerRequest, CreateRequest, UpdateOrCreateRequest } from '@twir/grpc/generated/api/api/giveaways';
+import { ChooseWinnersRequest, ClearParticipantsRequest, CreateRequest, UpdateOrCreateRequest } from '@twir/grpc/generated/api/api/giveaways';
 import { Ref, ref } from 'vue';
 
 import { protectedApiClient } from '@/api/twirp';
@@ -63,13 +63,13 @@ export const useUpdateOrCreateGiveaway = () => {
 	});
 };
 
-export const useChooseGiveawayWinner = () => {
+export const useChooseGiveawayWinners = () => {
 	const queryClient = useQueryClient();
 
 	return useMutation({
 		mutationKey: ['chooseWinners'],
-		mutationFn: async (opts: ChooseWinnerRequest) => {
-			await protectedApiClient.giveawaysChooseWinner({
+		mutationFn: async (opts: ChooseWinnersRequest) => {
+			await protectedApiClient.giveawaysChooseWinners({
 				...opts,
 			});
 		},
@@ -80,3 +80,31 @@ export const useChooseGiveawayWinner = () => {
 		},
 	});
 };
+
+export const useClearGiveawayParticipants = () => {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationKey: ['chooseWinners'],
+		mutationFn: async (opts: ClearParticipantsRequest) => {
+			await protectedApiClient.giveawaysClearParticipants({
+				...opts,
+			});
+		},
+		onSuccess: async () => {
+			await queryClient.invalidateQueries(
+				['participants'],
+			);
+		},
+	});
+};
+
+export const useCurrentGiveawaysWinners = (giveawayId: Ref<string | undefined>) => useQuery({
+	queryKey: ['giveawayWinners'],
+	queryFn: async () => {
+		const req = await protectedApiClient.giveawaysGetWinners({
+			giveawayId: giveawayId.value as string,
+		});
+		return req.response;
+	},
+});

@@ -1,23 +1,41 @@
 <script setup lang="ts">
 
+import {
+  NModal,
+} from 'naive-ui';
+import { ref } from 'vue';
+
 import Chat from '@/components/giveaways/chat.vue';
 import Settings from '@/components/giveaways/settings.vue';
 import Users from '@/components/giveaways/users.vue';
+import Modal from '@/components/giveaways/winnersModal.vue';
+
+const showWinnersModal = ref(false);
 
 </script>
 
 <template>
 	<div class="main-container">
 		<div class="flex-container">
-			<Users />
+			<Users :show-winners-modal="() => showWinnersModal = true" />
 		</div>
 		<div class="flex-container">
-			<Settings />
+			<Settings :show-winners-modal="() => showWinnersModal = true" />
 		</div>
 		<div class="flex-container">
 			<Chat />
 		</div>
 	</div>
+
+	<n-modal
+		v-model:show="showWinnersModal"
+		:mask-closable="false"
+		title="Giveaway winners"
+		style="width: 700px; height: 500px"
+		preset="card"
+	>
+		<modal />
+	</n-modal>
 </template>
 
 <style scoped>

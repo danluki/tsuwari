@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { UpdateRequest, Winner } from '@twir/grpc/generated/api/api/giveaways';
+import { UpdateRequest } from '@twir/grpc/generated/api/api/giveaways';
 import { watchDebounced } from '@vueuse/core';
 import {
   NButton,
@@ -11,14 +11,21 @@ import {
   NInputNumber,
   NForm,
   NSpace,
-	NModal,
 } from 'naive-ui';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import { useCurrentGiveaway, useUserAccessFlagChecker, useParticipants, useUpdateOrCreateGiveaway, useChooseGiveawayWinner } from '@/api';
-import Modal from '@/components/giveaways/winners_modal.vue';
+import {
+  useCurrentGiveaway,
+  useUserAccessFlagChecker,
+  useParticipants,
+  useUpdateOrCreateGiveaway,
+  useChooseGiveawayWinners,
+} from '@/api';
 
+const props = defineProps<{
+  showWinnersModal: () => void;
+}>();
 
 const { t } = useI18n();
 
@@ -27,8 +34,6 @@ const giveawayId = computed(() => currentGiveaway.value?.id);
 
 const { data: participants } = useParticipants(giveawayId);
 const participantsCount = computed(() => participants.value?.totalCount);
-
-const showWinnersModal = ref(false);
 
 const formValue = ref<UpdateRequest>({
   description: '',
@@ -89,183 +94,165 @@ async function changeGiveawayStatus() {
   });
 }
 
-const chooseWinner = useChooseGiveawayWinner();
+const chooseWinner = useChooseGiveawayWinners();
 
 async function rollGiveaway() {
-	await chooseWinner.mutateAsync({
-		giveawayId: giveawayId.value,
-	});
-	showWinnersModal.value = true;
+  await chooseWinner.mutateAsync({
+    giveawayId: giveawayId.value,
+  });
+  props.showWinnersModal();
+
 }
 
-const winners = ref<Winner[]>([{
-	userId: '',
-	displayName: 'sggss',
-},
-{
-	userId: '',
-	displayName: 'danluki',
-},
-]);
 
 async function finishGiveaway() {
-	await updateOrCreateGiveaway.mutateAsync({
-		isFinished: true,
-		type: currentGiveaway.value?.type,
-	});
+  await updateOrCreateGiveaway.mutateAsync({
+    isFinished: true,
+    type: currentGiveaway.value?.type,
+  });
 }
-
 
 const hasAccessToManageGiveaways = useUserAccessFlagChecker('MANAGE_GIVEAWAYS');
 
 const isAbleToRoll = computed(
-  () => currentGiveaway.value && currentGiveaway.value.isRunning && participantsCount,
+  () =>
+    currentGiveaway.value &&
+    !currentGiveaway.value.isFinished &&
+    participantsCount.value &&
+    participantsCount.value > 0 &&
+		currentGiveaway.value?.winnerCount < participantsCount.value,
 );
-
-
 </script>
 <template>
-	<div class="flex-container">
-		<n-form>
-			<n-card
-				:title="t('giveaways.settings.title')"
-				content-style="padding: 0;"
-				header-style="padding: 10px;"
-				style="min-width: 300px; height: 100%; overflow-y: auto"
-				segmented
-			>
-				<div style="height: 95%; padding: 10px">
+	<n-form style="height: 100%; min-height: 100%">
+		<n-card
+			:title="t('giveaways.settings.title')"
+			content-style="padding: 0;"
+			header-style="padding: 10px;"
+			style="min-width: 300px; height: 100%; overflow-y: auto"
+			segmented
+		>
+			<div style="padding: 10px">
+				<n-input
+					v-model:value="formValue.description"
+					style="margin-bottom: 25px"
+					type="textarea"
+					placeholder="Giveaway description"
+				/>
+				<n-radio-group
+					v-model:value="formValue.type"
+					style="margin-bottom: 25px"
+					name="giveawaysTypesGroup"
+				>
+					<div>
+						<div style="margin-bottom: 7px">
+							{{ t("giveaways.settings.giveawayType") }}
+						</div>
+						<n-space>
+							<n-radio value="BY_KEYWORD" label="Keyword" />
+							<n-radio value="BY_RANDOM_NUMBER" label="Random number" />
+						</n-space>
+					</div>
+				</n-radio-group>
+				<n-space vertical>
 					<n-input
-						v-model:value="formValue.description"
+						v-if="formValue.type === 'BY_KEYWORD'"
+						v-model:value="formValue.keyword"
 						style="margin-bottom: 25px"
-						type="textarea"
-						placeholder="Giveaway description"
+						:disabled="formValue.type !== 'BY_KEYWORD'"
+						type="text"
+						placeholder="Keyword Phrase"
 					/>
-					<n-radio-group
-						v-model:value="formValue.type"
-						style="margin-bottom: 25px"
-						name="giveawaysTypesGroup"
-					>
-						<div>
-							<div style="margin-bottom: 7px">
-								{{ t("giveaways.settings.giveawayType") }}
-							</div>
-							<n-space>
-								<n-radio value="BY_KEYWORD" label="Keyword" />
-								<n-radio value="BY_RANDOM_NUMBER" label="Random number" />
-							</n-space>
-						</div>
-					</n-radio-group>
-					<n-space vertical>
-						<n-input
-							v-if="formValue.type === 'BY_KEYWORD'"
-							v-model:value="formValue.keyword"
-							style="margin-bottom: 25px"
-							:disabled="formValue.type !== 'BY_KEYWORD'"
-							type="text"
-							placeholder="Keyword Phrase"
-						/>
-						<div v-else style="margin-bottom: 25px">
-							<n-input-number
-								v-model:value="formValue.randomNumberFrom"
-								style="margin-bottom: 10px"
-								placeholder="Minimum number"
-								min="0"
-							/>
-							<n-input-number
-								v-model:value="formValue.randomNumberTo"
-								placeholder="Maximum number"
-								min="0"
-							/>
-						</div>
-						<div style="margin-bottom: 25px">
-							<div style="margin-bottom: 3px">
-								{{ t("giveaways.settings.subscribersLuck") }}
-							</div>
-							<n-slider
-								v-model:value="formValue.subscribersLuck"
-								:step="1"
-								:max="10"
-								:min="0"
-							/>
-						</div>
-
-						<div style="margin-bottom: 25px">
-							<div style="margin-bottom: 3px">
-								{{ t("giveaways.settings.followersLuck") }}
-							</div>
-							<n-slider
-								v-model:value="formValue.followersLuck"
-								:step="1"
-								:max="10"
-								:min="0"
-							/>
-						</div>
-
+					<div v-else style="margin-bottom: 25px">
 						<n-input-number
-							v-model:value="formValue.requiredMinWatchTime"
-							style="margin-bottom: 25px"
-							placeholder="Minimum watch time"
+							v-model:value="formValue.randomNumberFrom"
+							style="margin-bottom: 10px"
+							placeholder="Minimum number"
 							min="0"
 						/>
-
 						<n-input-number
-							v-model:value="formValue.winnersCount"
-							style="margin-bottom: 25px"
-							placeholder="Winners count"
-							min="1"
+							v-model:value="formValue.randomNumberTo"
+							placeholder="Maximum number"
+							min="0"
 						/>
+					</div>
+					<div style="margin-bottom: 25px">
+						<div style="margin-bottom: 3px">
+							{{ t("giveaways.settings.subscribersLuck") }}
+						</div>
+						<n-slider
+							v-model:value="formValue.subscribersLuck"
+							:step="1"
+							:max="10"
+							:min="0"
+						/>
+					</div>
 
-						<n-button
-							type="primary"
-							style="width: 100%"
-							:disabled="!isAbleToRoll"
-							@click="rollGiveaway"
-						>
-							{{
-								isAbleToRoll
-									? t("giveaways.settings.roll")
-									: t("giveaways.settings.cantRoll")
-							}}
-						</n-button>
-						<n-space />
-						<n-button
-							type="primary"
-							style="width: 100%"
-							:disabled="!hasAccessToManageGiveaways"
-							@click="finishGiveaway"
-						>
-							{{
-								t("giveaways.settings.finish")
-							}}
-						</n-button>
-					</n-space>
-				</div>
-				<template #header-extra>
+					<div style="margin-bottom: 25px">
+						<div style="margin-bottom: 3px">
+							{{ t("giveaways.settings.followersLuck") }}
+						</div>
+						<n-slider
+							v-model:value="formValue.followersLuck"
+							:step="1"
+							:max="10"
+							:min="0"
+						/>
+					</div>
+
+					<n-input-number
+						v-model:value="formValue.requiredMinWatchTime"
+						style="margin-bottom: 25px"
+						placeholder="Minimum watch time"
+						min="0"
+					/>
+
+					<n-input-number
+						v-model:value="formValue.winnersCount"
+						style="margin-bottom: 25px"
+						placeholder="Winners count"
+						min="1"
+					/>
+
 					<n-button
-						secondary
 						type="primary"
-						:disabled="!hasAccessToManageGiveaways"
-						@click="changeGiveawayStatus"
+						style="width: 100%"
+						:disabled="!isAbleToRoll"
+						@click="rollGiveaway"
 					>
 						{{
-							currentGiveaway?.isRunning
-								? t("giveaways.settings.running")
-								: t("giveaways.settings.stopped")
+							isAbleToRoll
+								? t("giveaways.settings.roll")
+								: t("giveaways.settings.cantRoll")
 						}}
 					</n-button>
-				</template>
-			</n-card>
-		</n-form>
-	</div>
-
-	<n-modal
-		v-model:show="showWinnersModal"
-		:mask-closable="false"
-		preset="card"
-	>
-		<modal :winners="winners" />
-	</n-modal>
+					<n-space />
+					<n-button
+						type="primary"
+						style="width: 100%"
+						:disabled="!hasAccessToManageGiveaways"
+						@click="finishGiveaway"
+					>
+						{{ t("giveaways.settings.finish") }}
+					</n-button>
+				</n-space>
+			</div>
+			<template #header-extra>
+				<n-button
+					secondary
+					type="primary"
+					:disabled="!hasAccessToManageGiveaways"
+					@click="changeGiveawayStatus"
+				>
+					{{
+						currentGiveaway?.isRunning
+							? t("giveaways.settings.running")
+							: t("giveaways.settings.stopped")
+					}}
+				</n-button>
+			</template>
+		</n-card>
+	</n-form>
 </template>
 
 <style scoped></style>

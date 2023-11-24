@@ -169,21 +169,20 @@ func (c *Impl) TryProcessParticipant(
 		return &emptypb.Empty{}, nil
 	}
 
-	//TODO: Probably wrong id
-	// isFollower, err := c.isFollower(ctx, req.GetChannelId(), dbUser.ID)
-	// if err != nil {
-	// 	c.Logger.Error("Cannot check if user is follower", slog.Any("err", err))
-	// 	return nil, err
-	// }
+	isFollower, err := c.isFollower(ctx, req.GetChannelId(), dbUser.ID)
+	if err != nil {
+		c.Logger.Error("Cannot check if user is follower", slog.Any("err", err))
+		return nil, err
+	}
 
 	newParticipant := model.ChannelGiveawayParticipant{
-		GiveawayID:   giveaway.ID,
-		UserID:       dbUser.ID,
-		DisplayName:  req.GetDisplayName(),
-		IsSubscriber: userStats.IsSubscriber,
-		IsModerator:  userStats.IsMod,
-		IsVip:        userStats.IsVip,
-		// IsFollower:           isFollower,
+		GiveawayID:           giveaway.ID,
+		UserID:               dbUser.ID,
+		DisplayName:          req.GetDisplayName(),
+		IsSubscriber:         userStats.IsSubscriber,
+		IsModerator:          userStats.IsMod,
+		IsVip:                userStats.IsVip,
+		IsFollower:           isFollower,
 		MessagesCount:        int(userStats.Messages),
 		UserStatsWatchedTime: userStats.Watched,
 	}
@@ -231,6 +230,17 @@ func (c *Impl) ChooseWinner(
 		return nil, err
 	}
 
+	if len(participants) == 0 {
+		return nil, status.Error(codes.Canceled, "No participants")
+	}
+
+	if len(participants) <= giveaway.WinnersCount {
+		return nil, status.Error(
+			codes.OutOfRange,
+			"Participants count must be greater than winners count",
+		)
+	}
+
 	for _, participant := range participants {
 		err = c.DB.WithContext(ctx).
 			Model(participant).
@@ -250,7 +260,6 @@ func (c *Impl) ChooseWinner(
 		if participant.IsFollower {
 			countOfTimes += giveaway.FollowersLuck
 		}
-		//TODO: add more conditions
 
 		for i := 0; i < countOfTimes; i++ {
 			processedParticipants = append(processedParticipants, &giveaways.SimpleWinner{

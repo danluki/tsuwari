@@ -74,11 +74,21 @@ func (c *Giveaways) GiveawaysGetParticipants(
 	ctx context.Context,
 	req *giveaways.GetParticipantsRequest,
 ) (*giveaways.GetParticipantsResponse, error) {
-	// dashboardId := ctx.Value("dashboardId").(string)
+	dashboardId := ctx.Value("dashboardId").(string)
+
+	var dbGiveaway model.ChannelGiveaway
+	err := c.Db.WithContext(ctx).
+		Where(`"channel_id = ?" AND "id = ?"`, dashboardId, req.GetGiveawayId()).
+		Group(`"id`).
+		First(&dbGiveaway).
+		Error
+	if err != nil {
+		return nil, err
+	}
 
 	var participants []*model.ChannelGiveawayParticipant
-	err := c.Db.WithContext(ctx).
-		Where(`"giveaway_id" = ? AND "display_name" LIKE ?`, req.GiveawayId, "%"+req.GetQuery()+"%").
+	err = c.Db.WithContext(ctx).
+		Where(`"giveaway_id" = ? AND "display_name" LIKE ?`, req.GetGiveawayId(), "%"+req.GetQuery()+"%").
 		Find(&participants).
 		Error
 	if err != nil {
@@ -87,7 +97,7 @@ func (c *Giveaways) GiveawaysGetParticipants(
 
 	var count int64
 	err = c.Db.WithContext(ctx).
-		Where(`"giveaway_id" = ?`, req.GiveawayId).
+		Where(`"giveaway_id" = ?`, req.GetGiveawayId()).
 		Model(&model.ChannelGiveawayParticipant{}).
 		Count(&count).
 		Error
@@ -269,10 +279,10 @@ func (c *Giveaways) GiveawaysGetById(
 	return c.convertEntity(&dbGiveaway), nil
 }
 
-func (c *Giveaways) GiveawaysChooseWinner(
+func (c *Giveaways) GiveawaysChooseWinners(
 	ctx context.Context,
-	req *giveaways.ChooseWinnerRequest,
-) (*giveaways.ChooseWinnerResponse, error) {
+	req *giveaways.ChooseWinnersRequest,
+) (*giveaways.ChooseWinnersResponse, error) {
 	dashboardId := ctx.Value("dashboardId").(string)
 
 	var dbGiveaway model.ChannelGiveaway
@@ -300,15 +310,15 @@ func (c *Giveaways) GiveawaysChooseWinner(
 		}
 	}
 
-	return &giveaways.ChooseWinnerResponse{
+	return &giveaways.ChooseWinnersResponse{
 		Winners: winners,
 	}, nil
 }
 
-func (c *Giveaways) GiveawaysGetWinner(
+func (c *Giveaways) GiveawaysGetWinners(
 	ctx context.Context,
-	req *giveaways.GetWinnerRequest,
-) (*giveaways.GetWinnerResponse, error) {
+	req *giveaways.GetWinnersRequest,
+) (*giveaways.GetWinnersResponse, error) {
 	dashboardId := ctx.Value("dashboardId").(string)
 
 	var dbGiveaway model.ChannelGiveaway
@@ -321,12 +331,54 @@ func (c *Giveaways) GiveawaysGetWinner(
 		return nil, err
 	}
 
-	var winners []model.ChannelGiveawayParticipant
+	var winners []*model.ChannelGiveawayParticipant
 	err = c.Db.WithContext(ctx).
-		Where(`"giveaway_id" = ? AND "winner" = ?`, req.GetGiveawayId(), true).
+		Where(`"giveaway_id" = ? AND "is_winner" = ?`, req.GetGiveawayId(), true).
 		Find(&winners).
 		Error
 	if err != nil {
 		return nil, err
 	}
+
+	var convertedWinners []*giveaways.Winner
+	for _, winner := range winners {
+		convertedWinners = append(convertedWinners, &giveaways.Winner{
+			UserId:      winner.UserID,
+			DisplayName: winner.DisplayName,
+		})
+	}
+
+	return &giveaways.GetWinnersResponse{
+		Winners: convertedWinners,
+	}, nil
+}
+
+func (c *Giveaways) GiveawaysClearParticipants(
+	ctx context.Context,
+	req *giveaways.ClearParticipantsRequest,
+) (*giveaways.ClearParticipantsResponse, error) {
+	dashboardId := ctx.Value("dashboardId").(string)
+
+	var dbGiveaway model.ChannelGiveaway
+	err := c.Db.WithContext(ctx).
+		Where(`"channel_id" = ? AND "id" = ?`, dashboardId, req.GetGiveawayId()).
+		Group(`"id`).
+		First(&dbGiveaway).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.Db.WithContext(ctx).
+		Where(`"giveaway_id" = ?`, req.GetGiveawayId()).
+		Delete(&model.ChannelGiveawayParticipant{}).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &giveaways.ClearParticipantsResponse{
+		Winners:    []*giveaways.Winner{},
+		TotalCount: 0,
+	}, nil
 }

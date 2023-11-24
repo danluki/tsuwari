@@ -346,9 +346,10 @@ service Protected {
       returns (api.giveaways.Giveaway) {}
   rpc GiveawaysUpdateOrCreate(api.giveaways.UpdateOrCreateRequest)
       returns (api.giveaways.Giveaway) {}
-	rpc GiveawaysChooseWinner(api.giveaways.ChooseWinnerRequest) returns (api.giveaways.ChooseWinnerResponse) {}
+	rpc GiveawaysChooseWinners(api.giveaways.ChooseWinnersRequest) returns (api.giveaways.ChooseWinnersResponse) {}
 	rpc GiveawaysUpdate(api.giveaways.UpdateRequest) returns (api.giveaways.Giveaway) {}
-	rpc GiveawaysGetWinner(api.giveaways.GetWinnerRequest) returns (api.giveaways.GetWinnerResponse) {}
+	rpc GiveawaysGetWinners(api.giveaways.GetWinnersRequest) returns (api.giveaways.GetWinnersResponse) {}
+	rpc GiveawaysClearParticipants(api.giveaways.ClearParticipantsRequest) returns (api.giveaways.ClearParticipantsResponse) {}
 }
 
 // UnProtected

@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { IconRotate, IconTrophyFilled } from '@tabler/icons-vue';
+import { watchDebounced } from '@vueuse/core';
 import { NCard, NInput, NButton } from 'naive-ui';
 import { computed, ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-import { useCurrentGiveaway, useParticipants } from '@/api';
+import { useClearGiveawayParticipants, useCurrentGiveaway, useCurrentGiveawaysWinners, useParticipants } from '@/api';
+
+const props = defineProps<{
+	showWinnersModal: () => void
+}>();
 
 const { t } = useI18n();
 
-const emit = defineEmits<{
-	(event: 'update:searchValue', payload: string): void;
-}>();
-
 const { data: currentGiveaway, isError, isFetched, isLoading } = useCurrentGiveaway();
 const giveawayId = computed(() => currentGiveaway.value?.id);
-
 const searchValue = ref('');
 
 const {
@@ -24,14 +24,34 @@ const {
 } = useParticipants(giveawayId, searchValue);
 const participantsCount = computed(() => participants.value?.totalCount);
 
-
+watchDebounced(
+  searchValue,
+  async () => {
+    refreshParticipants();
+  },
+  { debounce: 200, maxWait: 500 },
+);
 
 const refreshUsers = () => {
-	setInterval(() => {
-		if (currentGiveaway.value?.isRunning) {
-			refreshParticipants();
+	setInterval(async () => {
+		if (!currentGiveaway.value?.isFinished) {
+			await refreshParticipants();
 		}
 	}, 5000);
+};
+
+const resetParticipants = useClearGiveawayParticipants();
+
+const { data: winners } = useCurrentGiveawaysWinners(giveawayId);
+
+const resetUsers = async () => {
+	await resetParticipants.mutateAsync({
+		giveawayId: giveawayId.value,
+	});
+};
+
+const showWinners = async () => {
+	props.showWinnersModal();
 };
 
 onMounted(refreshUsers);
@@ -58,7 +78,6 @@ onMounted(refreshUsers);
 					v-model:value="searchValue"
 					type="text"
 					placeholder="eg. TwirApp"
-					@update:value="$emit('update:searchValue', $event)"
 				/>
 				<n-button
 					type="tertiary"
@@ -69,6 +88,8 @@ onMounted(refreshUsers);
 						height: 34px;
 						margin: 0 5px;
 					"
+					:disabled="winners && winners.length > 0"
+					@click="showWinners"
 				>
 					<IconTrophyFilled />
 				</n-button>
@@ -81,15 +102,16 @@ onMounted(refreshUsers);
 						height: 34px;
 						margin: 0 5px;
 					"
+					@click="resetUsers"
 				>
 					<IconRotate />
 				</n-button>
 			</div>
 		</div>
-		<div style="padding: 10px">
-			<ul>
+		<div>
+			<ul style="list-style-type: none">
 				<li v-for="user in participants?.winners" :key="user.displayName">
-					{{ user }}
+					{{ user.displayName }}
 				</li>
 			</ul>
 		</div>

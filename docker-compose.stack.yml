@@ -134,6 +134,23 @@ services:
         constraints:
           - node.role == manager
 
+  giveaways:
+    image: registry.satont.ru/twir/giveaways:latest
+    secrets:
+      - twir_doppler_token
+    networks:
+      - twir
+    deploy:
+      restart_policy:
+        condition: any
+        delay: 30s
+        max_attempts: 30
+      endpoint_mode: dnsrr
+      placement:
+        constraints:
+          - node.role == manager
+
+
   parser:
     image: registry.satont.ru/twir/parser:latest
     secrets:

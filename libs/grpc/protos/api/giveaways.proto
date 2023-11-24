@@ -30,19 +30,19 @@ message Giveaway {
   bool isFinished = 25;
 }
 
-message GetWinnerRequest {
+message GetWinnersRequest {
 	string giveaway_id = 1;
 }
 
-message GetWinnerResponse {
-	repeated Winner winner = 1;
+message GetWinnersResponse {
+	repeated Winner winners = 1;
 }
 
-message ChooseWinnerRequest {
+message ChooseWinnersRequest {
 	string giveaway_id = 1;
 }
 
-message ChooseWinnerResponse {
+message ChooseWinnersResponse {
 	repeated Winner winners = 1;
 }
 
@@ -137,4 +137,13 @@ message UpdateRequest {
   optional string giveaway_id = 18;
   optional bool is_running = 19;
   optional bool is_finished = 20;
+}
+
+message ClearParticipantsRequest {
+	string giveaway_id = 1;
+}
+
+message ClearParticipantsResponse {
+	repeated Winner winners = 1;
+  int64 total_count = 2;
 }
