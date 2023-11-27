@@ -350,6 +350,7 @@ service Protected {
 	rpc GiveawaysUpdate(api.giveaways.UpdateRequest) returns (api.giveaways.Giveaway) {}
 	rpc GiveawaysGetWinners(api.giveaways.GetWinnersRequest) returns (api.giveaways.GetWinnersResponse) {}
 	rpc GiveawaysClearParticipants(api.giveaways.ClearParticipantsRequest) returns (api.giveaways.ClearParticipantsResponse) {}
+	rpc ModerationAvailableLanguages(google.protobuf.Empty) returns (api.moderation.AvailableLanguagesResponse) {}
 }
 
 // UnProtected
