@@ -41,7 +41,7 @@ import (
 
 func main() {
 	fx.New(
-		fx.NopLogger,
+		// fx.NopLogger,
 		fx.Provide(
 			func() cfg.Config {
 				config, err := cfg.New()
@@ -156,7 +156,7 @@ func main() {
 				fx.ParamTags(`group:"handlers"`),
 			),
 		),
-		fx.NopLogger,
+		// fx.NopLogger,
 		fx.Invoke(
 			func(mux *http.ServeMux, sessionManager *scs.SessionManager, l logger.Logger) {
 				l.Info("Started")
