@@ -59,7 +59,8 @@
     "alerts": "Alerts",
     "games": "Games",
     "users": "Users",
-    "moderation": "Moderation"
+    "moderation": "Moderation",
+		"giveaways": "Giveaways"
   },
   "navbar": {
     "logout": "Logout",
@@ -700,5 +701,21 @@
     "fontFamily": {
       "description": "We use Google fonts, you can find any font there with your prefered variant (i.e cyrillic)"
     }
-  }
+  },
+	"giveaways": {
+		"settings": {
+			"title": "Settings",
+			"running": "Running",
+			"stopped": "Stopped",
+			"giveawayType": "Giveaway type",
+			"subscribersLuck": "Subscribers luck",
+			"followersLuck": "Followers luck",
+			"roll": "Roll",
+			"cantRoll": "Can't roll",
+			"finish": "Finish"
+		},
+		"users": {
+			"title": "Users"
+		}
+	}
 }

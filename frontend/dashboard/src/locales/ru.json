@@ -59,7 +59,8 @@
     "users": "Пользователи",
     "chatAlerts": "Оповещения в чате",
     "overlaysRegistry": "Каталог оверлеев",
-    "moderation": "Модерация"
+    "moderation": "Модерация",
+		"giveaways": "Розыгрыши"
   },
   "deleteConfirmation": {
     "text": "Вы уверены, что хотите удалить это?",
@@ -693,5 +694,21 @@
     "fontFamily": {
       "description": "Мы используем шрифты от Google. Вы можете перейти по ссылке и выбрать любой понравившийся"
     }
-  }
+  },
+	"giveaways": {
+		"settings": {
+			"title": "Настройки",
+			"running": "Запущен",
+			"stopped": "Остановлен",
+			"giveawayType": "Тип розыгрыша",
+			"subscribersLuck": "Шанс подписчиков",
+			"followersLuck": "Шанс фолловеров",
+			"roll": "Разыграть",
+			"cantRoll": "Невозможно запустить розыгрыш",
+			"finish": "Закончить"
+		},
+		"users": {
+			"title": "Участники"
+    }
+	}
 }

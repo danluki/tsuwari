@@ -62,6 +62,10 @@ export const newRouter = (queryClient: QueryClient) => {
 					meta: { neededPermission: 'VIEW_GREETINGS' },
 				},
 				{
+					path: '/dashboard/giveaways',
+					component: () => import('./pages/Giveaways.vue'),
+				},
+				{
 					path: '/dashboard/community/users',
 					component: () => import('./pages/CommunityUsers.vue'),
 				},
