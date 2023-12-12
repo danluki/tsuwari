@@ -7,6 +7,7 @@ import (
 	"github.com/satont/twir/libs/grpc/generated/bots"
 	"github.com/satont/twir/libs/grpc/generated/discord"
 	"github.com/satont/twir/libs/grpc/generated/eventsub"
+	"github.com/satont/twir/libs/grpc/generated/giveaways"
 	"github.com/satont/twir/libs/grpc/generated/integrations"
 	"github.com/satont/twir/libs/grpc/generated/parser"
 	"github.com/satont/twir/libs/grpc/generated/scheduler"
@@ -27,6 +28,7 @@ type Grpc struct {
 	Timers       timers.TimersClient
 	EventSub     eventsub.EventSubClient
 	Discord      discord.DiscordClient
+	Giveaways    giveaways.GiveawaysClient
 }
 
 type Deps struct {

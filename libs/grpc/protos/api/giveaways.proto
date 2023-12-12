@@ -1,0 +1,149 @@
+syntax = "proto3";
+option go_package = "github.com/satont/twir/libs/grpc/generated/api/giveaways";
+package api.giveaways;
+
+message Giveaway {
+  string description = 1;
+  string type = 2;
+  string channel_id = 3;
+  string start_at = 4;
+  string end_at = 5;
+  int32 required_min_watch_time = 6;
+  int32 required_min_follow_time = 7;
+  int32 required_min_messages = 8;
+  int32 required_min_subscriber_tier = 9;
+  int32 required_min_subscriber_time = 10;
+  string eligible_user_groups = 11;
+  string keyword = 12;
+  int32 random_number_from = 13;
+  int32 random_number_to = 14;
+  int32 winner_random_number = 15;
+  int32 winner_count = 16;
+  int32 followers_luck = 17;
+  int32 subscribers_luck = 18;
+  int32 subscribers_tier1_luck = 19;
+  int32 subscribers_tier2_luck = 20;
+  int32 subscribers_tier3_luck = 21;
+  int32 messages_count_luck = 22;
+  string id = 23;
+  bool isRunning = 24;
+  bool isFinished = 25;
+}
+
+message GetWinnersRequest {
+	string giveaway_id = 1;
+}
+
+message GetWinnersResponse {
+	repeated Winner winners = 1;
+}
+
+message ChooseWinnersRequest {
+	string giveaway_id = 1;
+}
+
+message ChooseWinnersResponse {
+	repeated Winner winners = 1;
+}
+
+message Winner {
+  string user_id = 1;
+  string display_name = 2;
+}
+
+message GetParticipantsRequest {
+  string giveaway_id = 1;
+  string query = 2;
+}
+
+message GetParticipantsResponse {
+  repeated Winner winners = 1;
+  int64 total_count = 2;
+}
+
+message GetAllResponse { repeated Giveaway giveaways = 1; }
+
+message DeleteRequest { string id = 1; }
+
+message CreateRequest {
+  string description = 1;
+  string type = 2;
+  // string start_at = 3;
+  // string end_at = 4;
+  int32 required_min_watch_time = 5;
+  // int32 required_min_follow_time = 6;
+  int32 required_min_messages = 7;
+  // int32 required_min_subscriber_tier = 8;
+  // int32 required_min_subscriber_time = 9;
+  // string eligible_user_groups = 10;
+  string keyword = 11;
+  int32 random_number_from = 12;
+  int32 random_number_to = 13;
+  int32 winner_random_number = 14;
+  int32 winner_count = 15;
+  int32 followers_luck = 16;
+  int32 subscribers_luck = 17;
+  // int32 subscribers_tier1_luck = 18;
+  // int32 subscribers_tier2_luck = 19;
+  // int32 subscribers_tier3_luck = 20;
+  // int32 messages_count_luck = 21;
+  string created_at = 22;
+  string closed_at = 23;
+}
+
+message GetByIdRequest { string id = 1; }
+
+message UpdateOrCreateRequest {
+  optional string description = 1;
+  optional string type = 2;
+  //	string start_at = 4;
+  //	string end_at = 5;
+  optional int32 required_min_watch_time =
+      6; //	int32 required_min_follow_time = 7;
+  optional int32 required_min_messages = 8;
+  //	int32 required_min_subscriber_tier = 9;
+  //	int32 required_min_subscriber_time = 10;
+  //	string eligible_user_groups = 11;
+  optional string keyword = 12;
+  optional int32 random_number_from = 13;
+  optional int32 random_number_to = 14;
+  optional int32 winners_count = 15;
+  optional int32 followers_luck = 16;
+  optional int32 subscribers_luck = 17;
+
+  optional string giveaway_id = 18;
+  optional bool is_running = 19;
+  optional bool is_finished = 20;
+}
+
+message UpdateRequest {
+	optional string description = 1;
+  optional string type = 2;
+  //	string start_at = 4;
+  //	string end_at = 5;
+  optional int32 required_min_watch_time =
+      6; //	int32 required_min_follow_time = 7;
+  optional int32 required_min_messages = 8;
+  //	int32 required_min_subscriber_tier = 9;
+  //	int32 required_min_subscriber_time = 10;
+  //	string eligible_user_groups = 11;
+  optional string keyword = 12;
+  optional int32 random_number_from = 13;
+  optional int32 random_number_to = 14;
+  optional int32 winners_count = 15;
+  optional int32 followers_luck = 16;
+  optional int32 subscribers_luck = 17;
+
+  optional string giveaway_id = 18;
+  optional bool is_running = 19;
+  optional bool is_finished = 20;
+}
+
+message ClearParticipantsRequest {
+	string giveaway_id = 1;
+}
+
+message ClearParticipantsResponse {
+	repeated Winner winners = 1;
+  int64 total_count = 2;
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/satont/twir/apps/bots/internal/chat_client"
 	"github.com/satont/twir/apps/bots/pkg/tlds"
 	"github.com/satont/twir/libs/grpc/generated/events"
+	"github.com/satont/twir/libs/grpc/generated/giveaways"
 	"github.com/satont/twir/libs/grpc/generated/tokens"
 	"github.com/satont/twir/libs/grpc/generated/websockets"
 	"github.com/satont/twir/libs/logger"
@@ -32,6 +33,7 @@ type Opts struct {
 	TokensGrpc     tokens.TokensClient
 	EventsGrpc     events.EventsClient
 	WebsocketsGrpc websockets.WebsocketClient
+	GiveawaysGrpc  giveaways.GiveawaysClient
 
 	Tlds  *tlds.TLDS
 	Redis *redis.Client
@@ -40,23 +42,25 @@ type Opts struct {
 type Service struct {
 	Instances map[string]*chat_client.ChatClient
 
-	db         *gorm.DB
-	logger     logger.Logger
-	cfg        cfg.Config
-	parserGrpc parser.ParserClient
-	tokensGrpc tokens.TokensClient
-	eventsGrpc events.EventsClient
+	db            *gorm.DB
+	logger        logger.Logger
+	cfg           cfg.Config
+	parserGrpc    parser.ParserClient
+	tokensGrpc    tokens.TokensClient
+	eventsGrpc    events.EventsClient
+	giveawaysGrpc giveaways.GiveawaysClient
 }
 
 func NewBotsService(opts Opts) *Service {
 	service := &Service{
-		Instances:  make(map[string]*chat_client.ChatClient),
-		db:         opts.DB,
-		logger:     opts.Logger,
-		cfg:        opts.Cfg,
-		parserGrpc: opts.ParserGrpc,
-		tokensGrpc: opts.TokensGrpc,
-		eventsGrpc: opts.EventsGrpc,
+		Instances:     make(map[string]*chat_client.ChatClient),
+		db:            opts.DB,
+		logger:        opts.Logger,
+		cfg:           opts.Cfg,
+		parserGrpc:    opts.ParserGrpc,
+		tokensGrpc:    opts.TokensGrpc,
+		eventsGrpc:    opts.EventsGrpc,
+		giveawaysGrpc: opts.GiveawaysGrpc,
 	}
 	mu := sync.Mutex{}
 
@@ -84,6 +88,7 @@ func NewBotsService(opts Opts) *Service {
 				TokensGrpc:      opts.TokensGrpc,
 				EventsGrpc:      opts.EventsGrpc,
 				WebsocketsGrpc:  opts.WebsocketsGrpc,
+				GiveawaysGrpc:   opts.GiveawaysGrpc,
 				Redis:           opts.Redis,
 				JoinRateLimiter: joinRateLimiter,
 				Tlds:            opts.Tlds,

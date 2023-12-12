@@ -1,4 +1,6 @@
-go 1.21
+go 1.21.0
+
+toolchain go1.21.4
 
 use (
 	./apps/api
@@ -7,6 +9,7 @@ use (
 	./apps/emotes-cacher
 	./apps/events
 	./apps/eventsub
+	./apps/giveaways
 	./apps/parser
 	./apps/scheduler
 	./apps/timers

@@ -6,6 +6,7 @@ import (
 	"github.com/satont/twir/apps/bots/internal/chat_client"
 	"github.com/satont/twir/apps/bots/pkg/tlds"
 	"github.com/satont/twir/libs/grpc/generated/events"
+	"github.com/satont/twir/libs/grpc/generated/giveaways"
 	"github.com/satont/twir/libs/grpc/generated/tokens"
 	"github.com/satont/twir/libs/grpc/generated/websockets"
 	"github.com/satont/twir/libs/logger"
@@ -27,6 +28,7 @@ type ClientOpts struct {
 	TokensGrpc      tokens.TokensClient
 	EventsGrpc      events.EventsClient
 	WebsocketsGrpc  websockets.WebsocketClient
+	GiveawaysGrpc   giveaways.GiveawaysClient
 	Redis           *redis.Client
 	JoinRateLimiter ratelimiter.SlidingWindow
 	Tlds            *tlds.TLDS
@@ -43,6 +45,7 @@ func newBot(opts ClientOpts) *chat_client.ChatClient {
 			TokensGrpc:      opts.TokensGrpc,
 			EventsGrpc:      opts.EventsGrpc,
 			WebsocketsGrpc:  opts.WebsocketsGrpc,
+			GiveawaysGrpc:   opts.GiveawaysGrpc,
 			Redis:           opts.Redis,
 			JoinRateLimiter: opts.JoinRateLimiter,
 			Tlds:            opts.Tlds,

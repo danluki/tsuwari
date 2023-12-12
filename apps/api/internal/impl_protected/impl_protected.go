@@ -15,6 +15,7 @@ import (
 	"github.com/satont/twir/apps/api/internal/impl_protected/events"
 	"github.com/satont/twir/apps/api/internal/impl_protected/files"
 	"github.com/satont/twir/apps/api/internal/impl_protected/games"
+	"github.com/satont/twir/apps/api/internal/impl_protected/giveaways"
 	"github.com/satont/twir/apps/api/internal/impl_protected/greetings"
 	"github.com/satont/twir/apps/api/internal/impl_protected/integrations"
 	"github.com/satont/twir/apps/api/internal/impl_protected/keywords"
@@ -30,6 +31,7 @@ import (
 	config "github.com/satont/twir/libs/config"
 	"github.com/satont/twir/libs/grpc/generated/bots"
 	"github.com/satont/twir/libs/grpc/generated/discord"
+	giveawaysGrpc "github.com/satont/twir/libs/grpc/generated/giveaways"
 	integrationsGrpc "github.com/satont/twir/libs/grpc/generated/integrations"
 	"github.com/satont/twir/libs/grpc/generated/parser"
 	"github.com/satont/twir/libs/grpc/generated/scheduler"
@@ -65,6 +67,7 @@ type Protected struct {
 	*overlays.Overlays
 	*moderation.Moderation
 	*users.Users
+	*giveaways.Giveaways
 }
 
 type Opts struct {
@@ -84,6 +87,7 @@ type Opts struct {
 	TimersGrpc       timersGrpc.TimersClient
 	DiscordGrpc      discord.DiscordClient
 	Logger           logger.Logger
+	GiveawaysGrpc    giveawaysGrpc.GiveawaysClient
 }
 
 func New(opts Opts) *Protected {
@@ -101,6 +105,7 @@ func New(opts Opts) *Protected {
 			Scheduler:    opts.SchedulerGrpc,
 			Timers:       opts.TimersGrpc,
 			Discord:      opts.DiscordGrpc,
+			Giveaways:    opts.GiveawaysGrpc,
 		},
 		Logger: opts.Logger,
 	}
@@ -129,5 +134,6 @@ func New(opts Opts) *Protected {
 		Overlays:         &overlays.Overlays{Deps: d},
 		Moderation:       &moderation.Moderation{Deps: d},
 		Users:            &users.Users{Deps: d},
+		Giveaways:        &giveaways.Giveaways{Deps: d},
 	}
 }
