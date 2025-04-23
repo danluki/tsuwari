@@ -1,4 +1,4 @@
-go 1.24.1
+go 1.24.2
 
 use (
 	./apps/api
@@ -7,6 +7,7 @@ use (
 	./apps/chat-translator
 	./apps/discord
 	./apps/emotes-cacher
+	./apps/emotes-cacher-ws
 	./apps/events
 	./apps/eventsub
 	./apps/parser
