@@ -39,17 +39,18 @@ type Subscription struct {
 	hearbeatInterval  atomic.Int32
 	curHearbeatCycles atomic.Int32
 	active            atomic.Bool
+	wsErrorsCount     atomic.Int32
 
 	subscribedTo    []SubscribedToMetadata
 	sessionID       string
 	heartbeatTicker *time.Ticker
 	wsConn          *websocket.Conn
-	mu              sync.Mutex
+	mu              sync.RWMutex
 }
 
 func (s *Subscription) DumpSubscribedTo() []SubscribedToMetadata {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	copied := make([]SubscribedToMetadata, len(s.subscribedTo))
 	copy(copied, s.subscribedTo)
@@ -202,6 +203,7 @@ func (c *Client) AddListener(ctx context.Context) error {
 	go func() {
 		defer func() {
 			subscription.heartbeatTicker.Stop()
+			subscription.wsConn.Close()
 		}()
 
 		select {
@@ -214,6 +216,10 @@ func (c *Client) AddListener(ctx context.Context) error {
 			for {
 				_, rawMsg, err := subscription.wsConn.ReadMessage()
 				if err != nil {
+					subscription.wsErrorsCount.Add(1)
+					if subscription.wsErrorsCount.Load() > 10 {
+						return
+					}
 					if c.debugMode.Load() {
 						c.logger.Error(
 							"Error when reading message from WS",
@@ -225,6 +231,7 @@ func (c *Client) AddListener(ctx context.Context) error {
 					subscription.active.Store(false)
 					continue
 				}
+				subscription.wsErrorsCount.Add(0)
 
 				var eventApiWsMsg WsMessage
 				if err = json.Unmarshal(rawMsg, &eventApiWsMsg); err != nil {
@@ -681,9 +688,11 @@ func (c *Client) getMetrics() ClientMetrics {
 			alive++
 		}
 
+		sub.mu.RLock()
 		shardID := sub.sessionID
 		count := int(sub.curSubscriptions.Load())
 		totalSubs += count
+		sub.mu.RUnlock()
 
 		subscriptionsPerShard.WithLabelValues(shardID).Set(float64(count))
 		subscribedChannels.WithLabelValues(shardID).Set(float64(len(sub.DumpSubscribedTo())))
