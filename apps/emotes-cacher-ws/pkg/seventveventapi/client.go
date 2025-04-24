@@ -217,8 +217,19 @@ func (c *Client) AddListener(ctx context.Context) error {
 				_, rawMsg, err := subscription.wsConn.ReadMessage()
 				if err != nil {
 					subscription.wsErrorsCount.Add(1)
-					if subscription.wsErrorsCount.Load() > 10 {
-						return
+					if subscription.wsErrorsCount.Load() > 6 {
+						err = subscription.Resume(context.TODO())
+						if err != nil {
+							if c.debugMode.Load() {
+								c.logger.Debug(
+									"Cannot reconnect to 7TV",
+									slog.Any("currCycles", subscription.curHearbeatCycles.Load()),
+								)
+							}
+							return
+						}
+						subscription.wsErrorsCount.Store(0)
+						subscription.active.Store(true)
 					}
 					if c.debugMode.Load() {
 						c.logger.Error(
@@ -231,7 +242,7 @@ func (c *Client) AddListener(ctx context.Context) error {
 					subscription.active.Store(false)
 					continue
 				}
-				subscription.wsErrorsCount.Add(0)
+				subscription.wsErrorsCount.Store(0)
 
 				var eventApiWsMsg WsMessage
 				if err = json.Unmarshal(rawMsg, &eventApiWsMsg); err != nil {
@@ -413,7 +424,7 @@ func (c *Client) AddListener(ctx context.Context) error {
 								slog.Bool("status", success),
 							)
 
-							subscription.mu.Lock()
+							subscription.mu.RLock()
 							subscription.curSubscriptions.Store(0)
 							for _, subto := range subscription.subscribedTo {
 								err = subscription.wsConn.WriteJSON(SubscribeRequest{
@@ -432,11 +443,13 @@ func (c *Client) AddListener(ctx context.Context) error {
 											slog.String("session_id", subscription.sessionID),
 										)
 									}
-									continue
+									/*Consider subscription is dead when can't reconnect to all messages*/
+									subscription.active.Store(false)
+									return
 								}
 								subscription.curSubscriptions.Add(1)
 							}
-							subscription.mu.Unlock()
+							subscription.mu.RUnlock()
 						}
 					}
 				case Error:
@@ -488,9 +501,7 @@ func (c *Client) AddListener(ctx context.Context) error {
 					case InvalidPayload:
 					case RateLimited:
 						subscription.active.Store(false)
-						c.mu.Lock()
-						_ = subscription.wsConn.Close()
-						c.mu.Unlock()
+						return
 					case Restart:
 						err = subscription.Resume(context.TODO())
 						if err != nil {
