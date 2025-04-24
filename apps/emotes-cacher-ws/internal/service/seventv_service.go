@@ -41,17 +41,28 @@ func New(opts Opts) *SevenTvService {
 				}
 
 				for _, channel := range channels {
-					emoteSets, err := emotes.GetChannelSevenTvEmotesSets(channel.ID)
-					if err != nil {
-						panic(err)
-					}
-
-					for _, set := range emoteSets {
-						err := opts.Client.SubscribeToEmoteSetPatch(context.Background(), set)
+					go func() {
+						emoteSets, err := emotes.GetChannelSevenTvEmotesSets(channel.ID)
 						if err != nil {
 							panic(err)
 						}
-					}
+
+						for _, set := range emoteSets {
+							err := opts.Client.SubscribeToEmoteSetPatch(
+								context.Background(),
+								set,
+								channel.ID,
+							)
+							if err != nil {
+								panic(err)
+							}
+						}
+					}()
+				}
+
+				err = opts.Client.SubscribeToGlobalEmoteSetPatch(context.Background())
+				if err != nil {
+					panic(err)
 				}
 			}()
 

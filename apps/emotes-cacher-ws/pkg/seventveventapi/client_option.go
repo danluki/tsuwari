@@ -21,3 +21,17 @@ func WithDebugMode(enabled bool) Option {
 		c.debugMode.Store(enabled)
 	})
 }
+
+func WithShardSize(size int32) Option {
+	return optionFunc(func(c *Client) {
+		c.shardSize = size
+	})
+}
+
+func WithOnDispatch(
+	onDispatch func(channelID string, emoteName string, status string),
+) Option {
+	return optionFunc(func(c *Client) {
+		c.onDispatch = onDispatch
+	})
+}

@@ -93,13 +93,13 @@ func mapToAckRequest(data map[string]interface{}) (AckRequest, error) {
 	if command, ok := data["command"].(string); ok {
 		ackRequest.Command = command
 	} else {
-		return ackRequest, fmt.Errorf("invalid or missing code")
+		return ackRequest, fmt.Errorf("invalid or missing command")
 	}
 
 	if data, ok := data["data"].(map[string]interface{}); ok {
 		ackRequest.Data = data
 	} else {
-		return ackRequest, fmt.Errorf("invalid or missing message")
+		return ackRequest, fmt.Errorf("invalid or missing data")
 	}
 
 	return ackRequest, nil

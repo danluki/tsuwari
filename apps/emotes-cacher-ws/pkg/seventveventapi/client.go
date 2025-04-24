@@ -3,6 +3,7 @@ package seventveventapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -17,7 +18,16 @@ type SubscriptionStatus string
 const (
 	baseUrl         = "wss://events.7tv.io/v3"
 	heartbeatCycles = 3
+	/*How much 7TV objects we can subscribe with one connection*/
+	baseSubscriptionLimit = 500
+	shardSize             = 50
+	gloabalEmoteSetID     = "01HKQT8EWR000ESSWF3625XCS4"
 )
+
+type SubscribedToMetadata struct {
+	ChannelID  string
+	EmoteSetID string
+}
 
 type Subscription struct {
 	// Subscription is temporary instance so its requies context inside
@@ -30,10 +40,35 @@ type Subscription struct {
 	curHearbeatCycles atomic.Int32
 	active            atomic.Bool
 
+	subscribedTo    []SubscribedToMetadata
 	sessionID       string
 	heartbeatTicker *time.Ticker
 	wsConn          *websocket.Conn
 	mu              sync.Mutex
+}
+
+func (s *Subscription) DumpSubscribedTo() []SubscribedToMetadata {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	copied := make([]SubscribedToMetadata, len(s.subscribedTo))
+	copy(copied, s.subscribedTo)
+	return copied
+}
+
+func (s *Subscription) GetMetrics() SubscriptionMetrics {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return SubscriptionMetrics{
+		SessionID:              s.sessionID,
+		SubscriptionLimit:      s.subscriptionLimit.Load(),
+		CurrentSubscriptions:   s.curSubscriptions.Load(),
+		HeartbeatIntervalMs:    s.hearbeatInterval.Load(),
+		CurrentHeartbeatCycles: s.curHearbeatCycles.Load(),
+		Active:                 s.active.Load(),
+		SubscribedCount:        len(s.subscribedTo),
+	}
 }
 
 func (s *Subscription) Connect(ctx context.Context) error {
@@ -92,16 +127,23 @@ type Client struct {
 	debugMode atomic.Bool
 
 	shard         int32
+	shardSize     int32
 	subscriptions []*Subscription
 	mu            sync.RWMutex
+
+	onDispatch func(channelID string, emoteName string, status string)
 }
 
 func NewFx() *Client {
-	return NewClient(WithDebugMode(true))
+	return NewClient(WithDebugMode(true), WithOnDispatch(func(channelID, emoteName, status string) {
+		fmt.Println("Dispatched", channelID, emoteName, status)
+	}))
 }
 
 func NewClient(opts ...Option) *Client {
-	client := &Client{}
+	client := &Client{
+		shardSize: shardSize,
+	}
 
 	for _, opt := range opts {
 		opt.apply(client)
@@ -173,7 +215,12 @@ func (c *Client) AddListener(ctx context.Context) error {
 				_, rawMsg, err := subscription.wsConn.ReadMessage()
 				if err != nil {
 					if c.debugMode.Load() {
-						c.logger.Error("Error when reading message from WS", slog.Any("err", err))
+						c.logger.Error(
+							"Error when reading message from WS",
+							slog.Any("err", err),
+							// TODO: potentially datarace for this field, but chance is low, to fix need to s.mu.Lock() but bad for perf
+							slog.String("sessionID", subscription.sessionID),
+						)
 					}
 					subscription.active.Store(false)
 					continue
@@ -185,6 +232,8 @@ func (c *Client) AddListener(ctx context.Context) error {
 						c.logger.Error(
 							"Error when marshalling message from WS",
 							slog.Any("err", err),
+							// TODO: potentially datarace for this field, but chance is low, to fix need to s.mu.Lock() but bad for perf
+							slog.String("sessionID", subscription.sessionID),
 						)
 					}
 					subscription.active.Store(false)
@@ -192,7 +241,11 @@ func (c *Client) AddListener(ctx context.Context) error {
 				}
 
 				if c.debugMode.Load() {
-					c.logger.Info("New message from 7TV WS", slog.Any("msg", eventApiWsMsg))
+					c.logger.Info(
+						"New message from 7TV WS",
+						slog.Any("msg", eventApiWsMsg),
+						slog.String("sessionID", subscription.sessionID),
+					)
 				}
 
 				switch ServerOpcode(eventApiWsMsg.Operation) {
@@ -200,6 +253,56 @@ func (c *Client) AddListener(ctx context.Context) error {
 					/*
 						TODO: Looks for emotes-sets update, delete, create, and update information about this in redis
 					*/
+					if c.onDispatch == nil {
+						continue
+					}
+
+					dataRaw := eventApiWsMsg.D["body"]
+					body, ok := dataRaw.(map[string]interface{})
+					if !ok {
+						if c.debugMode.Load() {
+							c.logger.Error(
+								"Skipped dispatch cus of bad body",
+								slog.String("sessionID", subscription.sessionID),
+							)
+						}
+						continue
+					}
+
+					/*
+						TODO: nice parser not GPT based one.
+					*/
+					if pushedRaw, ok := body["pushed"]; ok {
+						pushedSlice, ok := pushedRaw.([]interface{})
+						if ok {
+							for _, item := range pushedSlice {
+								change, ok := item.(map[string]interface{})
+								if ok {
+									if value, ok := change["value"].(map[string]interface{}); ok {
+										if data, ok := value["data"].(map[string]interface{}); ok {
+											c.onDispatch("global", data["name"].(string), "added")
+										}
+									}
+								}
+							}
+						}
+					}
+
+					if pulledRaw, ok := body["pulled"]; ok {
+						pulledSlice, ok := pulledRaw.([]interface{})
+						if ok {
+							for _, item := range pulledSlice {
+								change, ok := item.(map[string]interface{})
+								if ok {
+									if oldValue, ok := change["old_value"].(map[string]interface{}); ok {
+										if data, ok := oldValue["data"].(map[string]interface{}); ok {
+											c.onDispatch("global", data["name"].(string), "deleted")
+										}
+									}
+								}
+							}
+						}
+					}
 				case Hello:
 					var body HelloRequest
 					body, err = mapToHelloRequest(eventApiWsMsg.D)
@@ -297,12 +400,36 @@ func (c *Client) AddListener(ctx context.Context) error {
 								)
 							}
 						} else {
-							subscription.active.Store(false)
 							c.logger.Debug(
-								"RESUMED session error",
+								"RESUMED session error trying resubscribing to shard",
 								slog.String("session_id", subscription.sessionID),
 								slog.Bool("status", success),
 							)
+
+							subscription.mu.Lock()
+							subscription.curSubscriptions.Store(0)
+							for _, subto := range subscription.subscribedTo {
+								err = subscription.wsConn.WriteJSON(SubscribeRequest{
+									Operation: Subscribe,
+									D: SubscribeData{
+										Type: PatchEmoteSet,
+										Condition: map[string]string{
+											"object_id": subto.EmoteSetID,
+										},
+									},
+								})
+								if err != nil {
+									if c.debugMode.Load() {
+										c.logger.Debug(
+											"Resubscribe error",
+											slog.String("session_id", subscription.sessionID),
+										)
+									}
+									continue
+								}
+								subscription.curSubscriptions.Add(1)
+							}
+							subscription.mu.Unlock()
 						}
 					}
 				case Error:
@@ -423,6 +550,7 @@ func (c *Client) AddListener(ctx context.Context) error {
 func (c *Client) SubscribeToEmoteSetPatch(
 	ctx context.Context,
 	id string,
+	channelID string,
 ) error {
 	subscription, err := c.GetCurrentSubscriptionOrCreateNew(ctx)
 	if err != nil {
@@ -433,11 +561,46 @@ func (c *Client) SubscribeToEmoteSetPatch(
 	err = subscription.wsConn.WriteJSON(SubscribeRequest{
 		Operation: Subscribe,
 		D: SubscribeData{
-			Type: PatchEmoteSet,
+			Type: UpdateEmoteSet,
 			Condition: map[string]string{
 				"object_id": id,
 			},
 		},
+	})
+	subscription.subscribedTo = append(subscription.subscribedTo, SubscribedToMetadata{
+		ChannelID:  channelID,
+		EmoteSetID: id,
+	})
+	subscription.mu.Unlock()
+	subscription.curSubscriptions.Add(1)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) SubscribeToGlobalEmoteSetPatch(
+	ctx context.Context,
+) error {
+	subscription, err := c.GetCurrentSubscriptionOrCreateNew(ctx)
+	if err != nil {
+		return err
+	}
+
+	subscription.mu.Lock()
+	err = subscription.wsConn.WriteJSON(SubscribeRequest{
+		Operation: Subscribe,
+		D: SubscribeData{
+			Type: UpdateEmoteSet,
+			Condition: map[string]string{
+				"object_id": gloabalEmoteSetID,
+			},
+		},
+	})
+	subscription.subscribedTo = append(subscription.subscribedTo, SubscribedToMetadata{
+		ChannelID:  "global",
+		EmoteSetID: gloabalEmoteSetID,
 	})
 	subscription.mu.Unlock()
 	subscription.curSubscriptions.Add(1)
@@ -464,12 +627,12 @@ func (c *Client) GetCurrentSubscriptionOrCreateNew(ctx context.Context) (*Subscr
 	subscription := c.subscriptions[c.shard]
 	if c.debugMode.Load() {
 		c.logger.Debug(
-			"Information output",
+			"New subscription",
 			slog.Any("subscription", subscription.curSubscriptions.Load()),
 		)
 	}
 
-	if subscription.curSubscriptions.Load() > subscription.subscriptionLimit.Load()-20 {
+	if subscription.curSubscriptions.Load() >= c.shardSize {
 		err := c.AddListener(ctx)
 		if err != nil {
 			return nil, err
@@ -511,16 +674,37 @@ func (c *Client) getMetrics() ClientMetrics {
 
 	total := len(c.subscriptions)
 	alive := 0
+	totalSubs := 0
 
 	for _, sub := range c.subscriptions {
 		if sub.active.Load() {
 			alive++
 		}
+
+		shardID := sub.sessionID
+		count := int(sub.curSubscriptions.Load())
+		totalSubs += count
+
+		subscriptionsPerShard.WithLabelValues(shardID).Set(float64(count))
+		subscribedChannels.WithLabelValues(shardID).Set(float64(len(sub.DumpSubscribedTo())))
 	}
+
+	totalSubscriptions.Set(float64(totalSubs))
 
 	return ClientMetrics{
 		TotalShards: total,
 		AliveShards: alive,
 		DeadShards:  total - alive,
 	}
+}
+
+func (c *Client) CollectAllSubscriptionMetrics() []SubscriptionMetrics {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var metrics []SubscriptionMetrics
+	for _, s := range c.subscriptions {
+		metrics = append(metrics, s.GetMetrics())
+	}
+	return metrics
 }
